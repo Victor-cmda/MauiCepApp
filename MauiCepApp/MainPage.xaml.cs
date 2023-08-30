@@ -13,76 +13,73 @@ namespace MauiCepApp
         public MainPage()
         {
             InitializeComponent();
+        }
 
+        public void AlterSearch(object sender, CheckedChangedEventArgs e)
+        {
+            if (selectCep.IsChecked)
+            {
+                AlterLabel.Text = "Consulte seu CEP";
+                cepEntry.Placeholder = "Digite seu CEP aqui";
+            }
+            else if (selectRua.IsChecked)
+            {
+                AlterLabel.Text = "Consulte sua Rua";
+                cepEntry.Placeholder = "Digite sua Rua aqui";
 
-
-            cepStatic.IsVisible = false;
-            logradouroStatic.IsVisible = false;
-            bairroStatic.IsVisible = false;
-            localidadeStatic.IsVisible = false;
+            }
         }
 
         public async void ButtonClicked(object sender, EventArgs e)
         {
             string cep = cepEntry.Text;
 
-            if (!string.IsNullOrWhiteSpace(cep) && cep.Length == 8)
+            using HttpClient client = new HttpClient();
+
+            string requestUrl = "";
+            if (selectCep.IsChecked)
+                requestUrl = $"{ViaCepBaseUrl}{cep}/json/";
+            else
             {
-                using HttpClient client = new HttpClient();
+                cep = cep.Replace(",", "/");
+                cep = cep.Replace(" ", "%20");
+                requestUrl = $"{ViaCepBaseUrl}{cep}/json/";
+            }
 
-                string requestUrl = $"{ViaCepBaseUrl}{cep}/json/";
+            try
+            {
+                HttpResponseMessage response = await client.GetAsync(requestUrl);
 
-                try
+                if (response.IsSuccessStatusCode)
                 {
-                    HttpResponseMessage response = await client.GetAsync(requestUrl);
+                    string responseBody = await response.Content.ReadAsStringAsync();
 
-                    if (response.IsSuccessStatusCode)
+                    if (selectRua.IsChecked)
                     {
-                        string responseBody = await response.Content.ReadAsStringAsync();
 
-                        ViaCepResponse viaCepResponse = JsonSerializer.Deserialize<ViaCepResponse>(responseBody);
+                        List<ViaCepResponse> viaCepResponse = JsonSerializer.Deserialize<List<ViaCepResponse>>(responseBody);
 
-                        cepLabel.Text = viaCepResponse.cep;
-                        logradouroLabel.Text = viaCepResponse.logradouro;
-                        bairroLabel.Text = viaCepResponse.bairro;
-                        localidadeLabel.Text = viaCepResponse.localidade;
-
-                        notFound.IsVisible = false;
-                        cepStatic.IsVisible = true;
-                        logradouroStatic.IsVisible = true;
-                        bairroStatic.IsVisible = true;
-                        localidadeStatic.IsVisible = true;
-
-                        if(viaCepResponse.cep == null)
-                        {
-                            notFound.IsVisible = true;
-                            cepStatic.IsVisible = false;
-                            logradouroStatic.IsVisible = false;
-                            bairroStatic.IsVisible = false;
-                            localidadeStatic.IsVisible = false;
-                        }
+                        listViewOfResponse.ItemsSource = viaCepResponse;
                     }
                     else
                     {
-                        cepLabel.Text = "CEP não encontrado";
-                        logradouroLabel.Text = "";
-                        bairroLabel.Text = "";
-                        localidadeLabel.Text = "";
+                        ViaCepResponse viaCepResponse = JsonSerializer.Deserialize<ViaCepResponse>(responseBody);
 
-                        cepStatic.IsVisible = false;
-                        logradouroStatic.IsVisible = false;
-                        bairroStatic.IsVisible = false;
-                        localidadeStatic.IsVisible = false;
+                        List<ViaCepResponse> listOfViaCepResponse = new List<ViaCepResponse>();
+                        listOfViaCepResponse.Add(viaCepResponse);
+
+                        listViewOfResponse.ItemsSource = listOfViaCepResponse;
                     }
+                    notFound.IsVisible = false;
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine($"Erro: {ex.Message}");
-                    cepStatic.IsVisible = false;
-                    logradouroStatic.IsVisible = false;
-                    bairroStatic.IsVisible = false;
-                    localidadeStatic.IsVisible = false;
+                    notFound.IsVisible = true;
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro: {ex.Message}");
             }
         }
     }
